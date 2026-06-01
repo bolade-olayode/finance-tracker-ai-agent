@@ -65,6 +65,44 @@ export async function classifyMerchant(txn, { categoryTree }) {
 }
 
 /**
+ * parseEntry — converts a free-text note into a structured transaction.
+ * e.g. "energy drink 500" → { direction:'out', amount:500, description:'energy drink', ... }
+ */
+export async function parseEntry(text) {
+  const system = [
+    'You parse ONE short personal-finance note from a Nigerian user into a transaction.',
+    'Direction is "out" (spending) by default; use "in" for money received — words like got, received, from, paid me, salary, refund, gift, sent me.',
+    'amount is a number: "1.5k"=1500, "3,500"=3500, "2k"=2000.',
+    'description: a short clean label. account: one of opay, access, zenith, fidelity, cash if mentioned, else null.',
+    'If the text is not a transaction, set confident=false.',
+    'Reply with ONLY a JSON object — no prose, no markdown fences.',
+  ].join(' ');
+
+  const user = `NOTE: "${text}"\nReturn JSON: {"direction":"in|out","amount":number,"description":"...","account":"opay|access|zenith|fidelity|cash|null","confident":true|false}`;
+
+  const msg = await client().messages.create({
+    model: MODEL_CLASSIFY,
+    max_tokens: 150,
+    system,
+    messages: [{ role: 'user', content: user }],
+  });
+
+  try {
+    const o = parseJson(extractText(msg));
+    const amount = Number(o.amount);
+    return {
+      direction: o.direction === 'in' ? 'in' : 'out',
+      amount,
+      description: String(o.description || '').trim(),
+      account: o.account && o.account !== 'null' ? String(o.account).toLowerCase() : null,
+      confident: Boolean(o.confident) && amount > 0,
+    };
+  } catch {
+    return { confident: false };
+  }
+}
+
+/**
  * writeAdvice — turns the deterministic fortnightly numbers into 2-3 hyper-specific actions.
  * Claude receives ONLY computed figures; it reasons about them, it does not recompute them.
  */

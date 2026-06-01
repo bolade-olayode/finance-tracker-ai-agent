@@ -48,6 +48,15 @@ export const ACCOUNTS = {
     includeInBurnRate: false, // excluded from burn rate by design
     provider: 'savings',
   },
+  'CASH': {
+    bank: 'Cash',
+    type: 'Cash',
+    nickname: 'Physical Cash',
+    role: 'SPENDING',
+    currency: 'NGN',
+    includeInBurnRate: true,
+    provider: 'cash',
+  },
 };
 
 export const SPENDING_ACCOUNTS = Object.entries(ACCOUNTS)
