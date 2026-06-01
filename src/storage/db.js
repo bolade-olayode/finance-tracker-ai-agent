@@ -45,6 +45,7 @@ function bootstrap(db) {
       is_recurring      INTEGER DEFAULT 0,
       source            TEXT,   -- structural | merchant-map | item-map | claude | error
       flags             TEXT,
+      sheets_synced     INTEGER DEFAULT 0,
       created_at        TEXT DEFAULT (datetime('now','localtime'))
     );
 

@@ -31,6 +31,16 @@ export function createSQLiteDataSource() {
       return db.prepare(`SELECT * FROM transactions WHERE date = ? ORDER BY time`).all(date);
     },
 
+    async getUnsyncedTransactions() {
+      return db.prepare(`SELECT * FROM transactions WHERE sheets_synced = 0 AND AI_processed = 'TRUE' ORDER BY date, time`).all();
+    },
+
+    async markTransactionsSynced(ids) {
+      if (!ids.length) return;
+      const placeholders = ids.map(() => '?').join(',');
+      db.prepare(`UPDATE transactions SET sheets_synced = 1 WHERE transaction_id IN (${placeholders})`).run(...ids);
+    },
+
     async writeCategorizations(updates) {
       const stmt = db.prepare(`
         UPDATE transactions SET

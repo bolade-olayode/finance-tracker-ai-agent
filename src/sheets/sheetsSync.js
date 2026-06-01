@@ -97,33 +97,35 @@ async function overwriteTab(sheets, tabName, rows) {
 }
 
 /**
- * syncTransactions — push newly categorized transactions to the Transactions tab.
- * Only pushes rows that aren't already there (checks by transaction_id via date+desc match).
+ * syncTransactions — push only unsynced transactions to the Transactions tab.
+ * Caller passes dataSource so we can mark rows as synced after push.
  */
-export async function syncTransactions(transactions) {
+export async function syncTransactions(dataSource) {
   if (!SHEET_ID) return;
   try {
+    const transactions = await dataSource.getUnsyncedTransactions();
+    if (!transactions.length) { console.log('   [sheets] no new transactions to sync'); return; }
+
     const sheets = await getSheets();
     await ensureTab(sheets, TABS.TRANSACTIONS);
     await ensureHeaders(sheets, TABS.TRANSACTIONS);
 
-    const rows = transactions
-      .filter((t) => t.AI_processed === 'TRUE' || t.source)
-      .map((t) => [
-        t.date || '',
-        t.time || '',
-        t.normalized_desc || t.raw_description || '',
-        t.category_tier1 || '',
-        t.category_tier2 || '',
-        t.amount || 0,
-        t.type === 'CREDIT' ? 'IN' : 'OUT',
-        ACCT_NAMES[t.account_id] || t.account_id || '',
-        t.source || '',
-        t.flags || '',
-      ]);
+    const rows = transactions.map((t) => [
+      t.date || '',
+      t.time || '',
+      t.normalized_desc || t.raw_description || '',
+      t.category_tier1 || '',
+      t.category_tier2 || '',
+      t.amount || 0,
+      t.type === 'CREDIT' ? 'IN' : 'OUT',
+      ACCT_NAMES[t.account_id] || t.account_id || '',
+      t.source || '',
+      t.flags || '',
+    ]);
 
     await appendRows(sheets, TABS.TRANSACTIONS, rows);
-    console.log(`   [sheets] synced ${rows.length} transactions`);
+    await dataSource.markTransactionsSynced(transactions.map((t) => t.transaction_id));
+    console.log(`   [sheets] synced ${rows.length} new transactions`);
   } catch (err) {
     console.error('   [sheets] syncTransactions failed:', err.message);
   }
