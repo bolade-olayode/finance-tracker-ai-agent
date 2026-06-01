@@ -53,6 +53,10 @@ export const CATEGORY_TREE = {
     'Support: Family Transfer/Gift', 'Social: Events/Outings',
     'Giving: Church/Charity/Tithe', 'Misc: Celebrations',
   ],
+  'LOANS & LIABILITIES': [
+    'Loan: Borrowed (Received)', 'Loan: Repayment (Sent)',
+    'Loan: Opay Credit', 'Loan: Carbon/FairMoney', 'Loan: Owed to Person',
+  ],
 };
 
 // Flat set of valid "Tier1||Tier2" keys for O(1) validation.

@@ -27,20 +27,38 @@ export function createSQLiteDataSource() {
       return db.prepare(`SELECT * FROM transactions WHERE AI_processed = 'PENDING' ORDER BY date, time`).all();
     },
 
+    async getTransactionsByDate(date) {
+      return db.prepare(`SELECT * FROM transactions WHERE date = ? ORDER BY time`).all(date);
+    },
+
     async writeCategorizations(updates) {
       const stmt = db.prepare(`
         UPDATE transactions SET
-          AI_processed   = @AI_processed,
-          category_tier1 = @category_tier1,
-          category_tier2 = @category_tier2,
-          merchant_tag   = @merchant_tag,
-          normalized_desc= @normalized_desc,
-          is_recurring   = @is_recurring,
-          source         = @source,
-          flags          = @flags
+          AI_processed    = @AI_processed,
+          category_tier1  = @category_tier1,
+          category_tier2  = @category_tier2,
+          merchant_tag    = @merchant_tag,
+          normalized_desc = @normalized_desc,
+          is_recurring    = @is_recurring,
+          source          = @source,
+          flags           = @flags
         WHERE transaction_id = @transaction_id
       `);
-      db.transaction(() => { for (const u of updates) stmt.run(u); })();
+      db.transaction(() => {
+        for (const u of updates) {
+          stmt.run({
+            transaction_id:  u.transaction_id,
+            AI_processed:    u.AI_processed   ?? 'TRUE',
+            category_tier1:  u.category_tier1 ?? '',
+            category_tier2:  u.category_tier2 ?? '',
+            merchant_tag:    u.merchant_tag   ?? '',
+            normalized_desc: u.normalized_desc?? '',
+            is_recurring:    u.is_recurring   ?? 0,
+            source:          u.source         ?? '',
+            flags:           u.flags          ?? '',
+          });
+        }
+      })();
     },
 
     async appendTransaction(row) {
@@ -118,6 +136,7 @@ export function createSQLiteDataSource() {
     // ── Daily aggregates ───────────────────────────────────────────────────
 
     async appendDailyAggregate(row) {
+      const n = (v) => Number(v) || 0;
       db.prepare(`
         INSERT OR REPLACE INTO daily_aggregates
           (date, total_inflow, total_outflow, real_inflow, internal_transfers, savings_deposits,
@@ -131,7 +150,31 @@ export function createSQLiteDataSource() {
            @top_category, @top_category_amount, @top_items, @transaction_count,
            @recurring_charges_total, @late_night_spend, @transfer_fees_total, @avoidable_fees,
            @savings_interest_today, @total_savings_value, @estimated_net_worth, @anomaly_flags)
-      `).run({ ...row, top_items: JSON.stringify(row.top_items || []) });
+      `).run({
+        date:                     row.date || new Date().toISOString().slice(0, 10),
+        total_inflow:             n(row.total_inflow),
+        total_outflow:            n(row.total_outflow),
+        real_inflow:              n(row.real_inflow),
+        internal_transfers:       n(row.internal_transfers),
+        savings_deposits:         n(row.savings_deposits),
+        cash_withdrawn:           n(row.cash_withdrawn),
+        cash_spent_logged:        n(row.cash_spent_logged),
+        cash_unaccounted:         n(row.cash_unaccounted),
+        net_real_spend:           n(row.net_real_spend),
+        net_daily:                n(row.net_daily),
+        top_category:             row.top_category    || '',
+        top_category_amount:      n(row.top_category_amount),
+        top_items:                JSON.stringify(row.top_items || []),
+        transaction_count:        n(row.transaction_count),
+        recurring_charges_total:  n(row.recurring_charges_total),
+        late_night_spend:         n(row.late_night_spend),
+        transfer_fees_total:      n(row.transfer_fees_total),
+        avoidable_fees:           n(row.avoidable_fees),
+        savings_interest_today:   n(row.savings_interest_today),
+        total_savings_value:      n(row.total_savings_value),
+        estimated_net_worth:      n(row.estimated_net_worth),
+        anomaly_flags:            row.anomaly_flags   || '',
+      });
     },
 
     async getDailyAggregates(start, end) {

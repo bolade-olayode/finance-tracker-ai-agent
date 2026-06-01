@@ -33,8 +33,22 @@ export const SEED_MERCHANTS = [
 
   // BUSINESS
   { match: 'upwork', tier1: 'INCOME', tier2: 'Freelance: Upwork Disbursement', merchant: 'Upwork', recurring: false },
+
+  // LOANS
+  { match: 'opay loan', tier1: 'LOANS & LIABILITIES', tier2: 'Loan: Opay Credit', merchant: 'Opay Loan', recurring: false },
+  { match: 'carbon', tier1: 'LOANS & LIABILITIES', tier2: 'Loan: Carbon/FairMoney', merchant: 'Carbon', recurring: false },
+  { match: 'fairmoney', tier1: 'LOANS & LIABILITIES', tier2: 'Loan: Carbon/FairMoney', merchant: 'FairMoney', recurring: false },
+  { match: 'borrowed', tier1: 'LOANS & LIABILITIES', tier2: 'Loan: Borrowed (Received)', merchant: 'Loan Received', recurring: false },
+  { match: 'loan repay', tier1: 'LOANS & LIABILITIES', tier2: 'Loan: Repayment (Sent)', merchant: 'Loan Repayment', recurring: false },
   { match: 'hostinger', tier1: 'BUSINESS & PROFESSIONAL', tier2: 'Infrastructure: Hosting/Domains', merchant: 'Hostinger', recurring: true },
   { match: 'whogohost', tier1: 'BUSINESS & PROFESSIONAL', tier2: 'Infrastructure: Hosting/Domains', merchant: 'WhoGoHost', recurring: true },
+  { match: 'claude api', tier1: 'BUSINESS & PROFESSIONAL', tier2: 'Tools: Dev Software/Licenses', merchant: 'Claude API', recurring: true },
+  { match: 'claude pro', tier1: 'SUBSCRIPTIONS', tier2: 'Productivity: Software/SaaS', merchant: 'Claude Pro', recurring: true },
+  { match: 'strava', tier1: 'SUBSCRIPTIONS', tier2: 'Misc: Other Recurring', merchant: 'Strava', recurring: true },
+  { match: 'chatgpt', tier1: 'SUBSCRIPTIONS', tier2: 'Productivity: Software/SaaS', merchant: 'ChatGPT', recurring: true },
+  { match: 'github', tier1: 'BUSINESS & PROFESSIONAL', tier2: 'Tools: Dev Software/Licenses', merchant: 'GitHub', recurring: true },
+  { match: 'vercel', tier1: 'BUSINESS & PROFESSIONAL', tier2: 'Infrastructure: Hosting/Domains', merchant: 'Vercel', recurring: true },
+  { match: 'cursor', tier1: 'BUSINESS & PROFESSIONAL', tier2: 'Tools: Dev Software/Licenses', merchant: 'Cursor', recurring: true },
 ];
 
 // Longest match first so 'bolt food' wins over 'bolt'.

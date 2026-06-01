@@ -26,24 +26,41 @@ export async function runCycleA({ dataSource, classifier, date } = {}) {
 
     updates.push({
       transaction_id: txn.transaction_id,
-      category_tier1: result.category_tier1,
-      category_tier2: result.category_tier2,
-      normalized_desc: result.normalized_desc,
-      merchant_tag: result.merchant_tag,
-      is_recurring: result.is_recurring,
+      category_tier1: result.category_tier1 || '',
+      category_tier2: result.category_tier2 || '',
+      normalized_desc: result.normalized_desc || '',
+      merchant_tag: result.merchant_tag || '',
+      is_recurring: result.is_recurring ? 1 : 0,
+      source: result.source || '',
       flags: result.flags || '',
       AI_processed: result.ai_processed || 'TRUE',
-      processed_at: new Date().toISOString(),
     });
   }
 
   await dataSource.writeCategorizations(updates);
 
-  const [cashLedger, targets, accountBalances] = await Promise.all([
+  // Adjust account balances for each newly-processed transaction.
+  if (dataSource.setAccountBalance && pending.length > 0) {
+    const currentBalances = await dataSource.getAccountBalances();
+    const deltas = {};
+    for (const txn of pending) {
+      const id = txn.account_id;
+      if (!id) continue;
+      if (!(id in deltas)) deltas[id] = 0;
+      deltas[id] += txn.type === 'CREDIT' ? txn.amount : -txn.amount;
+    }
+    for (const [id, delta] of Object.entries(deltas)) {
+      const prev = currentBalances[id] || 0;
+      await dataSource.setAccountBalance(id, prev + delta);
+    }
+  }
+
+  const [cashLedger, targets, accountBalances, allTodayTxns] = await Promise.all([
     dataSource.getCashLedger(), dataSource.getTargets(), dataSource.getAccountBalances(),
+    dataSource.getTransactionsByDate ? dataSource.getTransactionsByDate(runDate) : Promise.resolve(pending),
   ]);
 
-  const aggregate = computeDailyAggregate({ date: runDate, transactions: pending, cashLedger, targets, accountBalances });
+  const aggregate = computeDailyAggregate({ date: runDate, transactions: allTodayTxns, cashLedger, targets, accountBalances });
   await dataSource.appendDailyAggregate(aggregate);
 
   return { processed: pending.length, aiCalls, learned, errors, aggregate };

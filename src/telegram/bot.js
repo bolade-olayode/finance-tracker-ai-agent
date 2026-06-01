@@ -12,6 +12,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import { runCycleA } from '../cycles/cycleA.js';
 import { runCycleB } from '../cycles/cycleB.js';
 import { formatCycleASummary } from './format.js';
+const ng = (n) => `₦${Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 import { createSQLiteDataSource } from '../storage/sqliteDataSource.js';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -49,6 +50,70 @@ bot.onText(/\/(start|menu)/, (m) => {
   bot.sendMessage(m.chat.id,
     '💼 *Finance Agent*\n`/log <amount> <what> [account]` — expense\n`/receive <amount> <what> [account]` — income',
     { parse_mode: 'Markdown', ...menu });
+});
+
+// /transfer 10000 opay piggy  — move money between your own accounts
+const ACCT_MAP = { opay: 'ACC-02', access: 'ACC-01', zenith: 'ACC-03', fidelity: 'ACC-04', cash: 'CASH', piggy: 'ACC-05' };
+const ACCT_NAMES = { 'ACC-01': 'Access', 'ACC-02': 'Opay', 'ACC-03': 'Zenith', 'ACC-04': 'Fidelity', 'CASH': 'Cash', 'ACC-05': 'PiggyVest' };
+
+bot.onText(/^\/transfer\s+(\d+(?:\.\d+)?)\s+(opay|access|zenith|fidelity|cash|piggy)\s+(opay|access|zenith|fidelity|cash|piggy)/i, async (m, match) => {
+  if (!allowed(m.chat.id)) return;
+  const amount   = Number(match[1]);
+  const fromId   = ACCT_MAP[match[2].toLowerCase()];
+  const toId     = ACCT_MAP[match[3].toLowerCase()];
+  const fromName = ACCT_NAMES[fromId];
+  const toName   = ACCT_NAMES[toId];
+  const now      = new Date().toTimeString().slice(0, 8);
+  const date     = new Date().toISOString().slice(0, 10);
+  const label    = `Transfer ${fromName} → ${toName}`;
+
+  // Two sides — both auto-categorize as INTERNAL_TRANSFER (structural rule, no Claude call)
+  await Promise.all([
+    dataSource.appendTransaction({
+      amount, raw_description: label, account_id: fromId,
+      type: 'DEBIT', transaction_type: 'INTERNAL_TRANSFER',
+      channel: 'Transfer', time: now, date,
+    }),
+    dataSource.appendTransaction({
+      amount, raw_description: label, account_id: toId,
+      type: 'CREDIT', transaction_type: 'INTERNAL_TRANSFER',
+      channel: 'Transfer', time: now, date,
+    }),
+  ]);
+
+  // Adjust balances immediately — no need to wait for Run Daily
+  const balances = await dataSource.getAccountBalances();
+  await Promise.all([
+    dataSource.setAccountBalance(fromId, (balances[fromId] || 0) - amount),
+    dataSource.setAccountBalance(toId,   (balances[toId]   || 0) + amount),
+  ]);
+
+  bot.sendMessage(m.chat.id,
+    `🔄 Transferred ${ng(amount)}\n${fromName}: ${ng((balances[fromId]||0) - amount)}\n${toName}: ${ng((balances[toId]||0) + amount)}`,
+    { parse_mode: 'Markdown', ...menu });
+});
+
+// /balance opay 45000  — seed or update an account's current real balance
+bot.onText(/^\/balance\s+(opay|access|zenith|fidelity|cash|piggy)\s+(\d+(?:\.\d+)?)/i, async (m, match) => {
+  if (!allowed(m.chat.id)) return;
+  const acctKey = match[1].toLowerCase();
+  const amount  = Number(match[2]);
+  const account_id = ACCT_MAP[acctKey];
+  await dataSource.setAccountBalance(account_id, amount);
+  bot.sendMessage(m.chat.id, `💳 ${match[1].toUpperCase()} balance set to ${ng(amount)}`, { parse_mode: 'Markdown' });
+});
+
+// /balances  — show all current account balances
+bot.onText(/^\/balances/, async (m) => {
+  if (!allowed(m.chat.id)) return;
+  const balances = await dataSource.getAccountBalances();
+  const NAMES = ACCT_NAMES;
+  const lines = ['💳 *Account Balances*'];
+  for (const [id, bal] of Object.entries(balances)) {
+    lines.push(`• ${NAMES[id] || id}: ${ng(bal)}`);
+  }
+  if (Object.keys(balances).length === 0) lines.push('_No balances set yet. Use /balance opay 45000_');
+  bot.sendMessage(m.chat.id, lines.join('\n'), { parse_mode: 'Markdown' });
 });
 
 // /log 4500 chowdeck opay  (expense/debit)
