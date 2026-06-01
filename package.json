@@ -1,0 +1,21 @@
+{
+  "name": "finance-agent",
+  "version": "0.1.0",
+  "description": "AI personal finance agent — rules-first engine, math in code, Claude for judgement only",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "demo": "node test/demo.js",
+    "test": "node test/cycle.test.js",
+    "bot": "node src/telegram/bot.js",
+    "cycle:a": "node src/cycles/cycleA.js",
+    "cycle:b": "node src/cycles/cycleB.js",
+    "start": "node src/telegram/bot.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.0",
+    "dotenv": "^17.0.0",
+    "googleapis": "^173.0.0",
+    "node-telegram-bot-api": "^0.67.0"
+  }
+}
