@@ -12,6 +12,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import { runCycleA } from '../cycles/cycleA.js';
 import { runCycleB } from '../cycles/cycleB.js';
 import { formatCycleASummary } from './format.js';
+import { syncTransactions, syncDailyAggregate, syncBalances } from '../sheets/sheetsSync.js';
 const ng = (n) => `₦${Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 import { createSQLiteDataSource } from '../storage/sqliteDataSource.js';
 
@@ -152,6 +153,14 @@ bot.on('callback_query', async (q) => {
       await bot.sendMessage(chatId, '⏳ Running daily ingestion…');
       const r = await runCycleA({ dataSource, classifier });
       await bot.sendMessage(chatId, formatCycleASummary(r), { parse_mode: 'Markdown', ...menu });
+      // Sync to Google Sheets in background — don't block the Telegram reply
+      const [todayTxns, balances] = await Promise.all([
+        dataSource.getTransactionsByDate(new Date().toISOString().slice(0, 10)),
+        dataSource.getAccountBalances(),
+      ]);
+      syncTransactions(todayTxns).catch(() => {});
+      syncDailyAggregate(r.aggregate).catch(() => {});
+      syncBalances(balances).catch(() => {});
     } else if (q.data === 'cycleB') {
       await bot.sendMessage(chatId, '⏳ Building fortnightly report…');
       const { text } = await runCycleB({ dataSource, adviser });
